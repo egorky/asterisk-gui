@@ -33,11 +33,12 @@ class AsteriskService extends EventEmitter {
     this.core = { version: null, uptime: null, reload: null, currentCalls: null, settings: {} };
     this.endpoints = { list: [], registrations: [], tech: null, at: 0 };
     this.queues = [];
+    this.unsupported = new Set();
     this.ring = [];
     this.timers = [];
     this.cfg = null;
     this.ami.on('state', (s) => { this.emit('status', this.status()); if (s !== 'connected') this._resetLive(); });
-    this.ami.on('connected', () => { this._refreshAll(); });
+    this.ami.on('connected', () => { this.unsupported.clear(); this._refreshAll(); });
     this.ami.on('event', (e) => this._onEvent(e));
   }
 
@@ -144,11 +145,20 @@ class AsteriskService extends EventEmitter {
     this.emit('core', this.core);
   }
 
+  /** Ejecuta una acción AMI y recuerda las que Asterisk no soporta para no repetirlas (evita ruido de seguridad). */
+  async _try(fields, opts) {
+    if (this.unsupported.has(fields.Action)) throw new Error('no soportada');
+    try { return await this.ami.action(fields, opts); } catch (e) {
+      if (/invalid\/unknown command/i.test(e.message)) this.unsupported.add(fields.Action);
+      throw e;
+    }
+  }
+
   async pollEndpoints() {
     if (!this.connected) return;
     const out = { list: [], registrations: [], tech: null, at: Date.now() };
     try {
-      const { events } = await this.ami.action({ Action: 'PJSIPShowEndpoints' }, { list: true, timeout: 20000 });
+      const { events } = await this._try({ Action: 'PJSIPShowEndpoints' }, { list: true, timeout: 20000 });
       out.tech = 'PJSIP';
       out.list = events.filter((e) => e.Event === 'EndpointList').map((e) => ({
         name: e.ObjectName, tech: 'PJSIP', state: e.DeviceState, contacts: e.Contacts, transport: e.Transport,
@@ -156,7 +166,7 @@ class AsteriskService extends EventEmitter {
         online: /not in use|in use|ringing|busy|on hold/i.test(e.DeviceState || '') && !/unavailable/i.test(e.DeviceState || ''),
       }));
       try {
-        const r = await this.ami.action({ Action: 'PJSIPShowRegistrationsOutbound' }, { list: true });
+        const r = await this._try({ Action: 'PJSIPShowRegistrationsOutbound' }, { list: true });
         out.registrations = r.events.filter((e) => e.Event === 'OutboundRegistrationDetail').map((e) => ({
           name: e.ObjectName, server: e.ServerUri, client: e.ClientUri, status: e.Status, tech: 'PJSIP',
         }));
@@ -164,21 +174,21 @@ class AsteriskService extends EventEmitter {
     } catch { /* PJSIP no cargado: probar chan_sip */ }
     if (!out.list.length) {
       try {
-        const { events } = await this.ami.action({ Action: 'SIPpeers' }, { list: true, timeout: 20000 });
+        const { events } = await this._try({ Action: 'SIPpeers' }, { list: true, timeout: 20000 });
         out.tech = 'SIP';
         out.list = events.filter((e) => e.Event === 'PeerEntry').map((e) => ({
           name: e.ObjectName, tech: 'SIP', state: e.Status, contacts: e['IPaddress'] ? `${e.IPaddress}:${e.IPport}` : '',
           transport: e.Dynamic === 'yes' ? 'dinámico' : 'estático', activeChannels: 0,
           online: /^OK/i.test(e.Status || ''),
         }));
-        const r = await this.ami.action({ Action: 'SIPshowregistry' }, { list: true });
+        const r = await this._try({ Action: 'SIPshowregistry' }, { list: true });
         out.registrations = r.events.filter((e) => e.Event === 'RegistryEntry').map((e) => ({
           name: e.Username, server: `${e.Host}:${e.Port}`, client: e.Username, status: e.State, tech: 'SIP',
         }));
       } catch { /* sin chan_sip */ }
     }
     try {
-      const { events } = await this.ami.action({ Action: 'QueueSummary' }, { list: true });
+      const { events } = await this._try({ Action: 'QueueSummary' }, { list: true });
       this.queues = events.filter((e) => e.Event === 'QueueSummary').map((e) => ({
         name: e.Queue, loggedIn: +e.LoggedIn, available: +e.Available, callers: +e.Callers, holdTime: +e.HoldTime, talkTime: +e.TalkTime,
       }));
@@ -241,7 +251,7 @@ class AsteriskService extends EventEmitter {
         this._record('system', 'error', 'Asterisk se está apagando', { shutdown: e.Shutdown, restart: e.Restart });
         break;
       default:
-        if (SECURITY.has(e.Event)) {
+        if (SECURITY.has(e.Event) && e.AccountID !== (this.cfg && this.cfg.username)) {
           this._record('security', 'warning', `Seguridad: ${e.Event}`, {
             account: e.AccountID, remote: e.RemoteAddress, service: e.Service, module: e.Module, local: e.LocalAddress, session: e.SessionID,
           });
