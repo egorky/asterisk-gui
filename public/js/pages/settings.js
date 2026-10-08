@@ -134,17 +134,22 @@ function callsForm() {
   const s = state.settings.calls;
   const lines = (v) => { const t = h('textarea', { rows: 4, spellcheck: false }); t.value = v.join('\n'); return t; };
   const digits = txt(s.internalMaxDigits, { type: 'number' });
+  const ufIn = txt(s.userfieldIn.join(', ')), ufOut = txt(s.userfieldOut.join(', '));
   const trunks = lines(s.trunkChannels), inCtx = lines(s.inboundContexts), outCtx = lines(s.outboundContexts);
+  const words = (t) => t.value.split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
   const split = (t) => t.value.split('\n').map((x) => x.trim()).filter(Boolean);
   return h('div.card', h('div.card-h', h('h3', 'Dirección de las llamadas'), h('span.sub', 'Entrante / saliente / interna')),
-    h('div.card-b', h('p.muted', { style: { marginTop: 0 } }, 'Asterisk no guarda la dirección en el CDR, así que se deduce con estas reglas, evaluadas en orden: 1) canal de troncal, 2) contexto de entrada, 3) origen y destino internos, 4) contexto de salida, 5) origen interno → saliente, 6) destino interno → entrante.'),
+    h('div.card-b', h('p.muted', { style: { marginTop: 0 } }, 'Asterisk no guarda la dirección en el CDR, así que se deduce con estas reglas, evaluadas en orden: 0) campo userfield del CDR, 1) canal de troncal, 2) contexto de entrada, 3) origen y destino internos, 4) contexto de salida, 5) origen interno → saliente, 6) destino interno → entrante.'),
+      h('div.form-grid', { style: { marginBottom: '14px' } },
+        field('Userfield = entrante', ufIn, 'Palabras separadas por coma (sin distinguir mayúsculas). Tiene prioridad sobre las demás reglas.'),
+        field('Userfield = saliente', ufOut, 'Ej: outgoing')),
       h('div.form-grid',
         field('Troncales (patrones de canal)', trunks, 'Uno por línea. Ej: SIP/xtrim-*  ·  PJSIP/trunk-*. Si el canal origen coincide es entrante; si coincide el canal destino es saliente.', '.full'),
         field('Extensión interna: máximo de dígitos', digits, 'Un número de hasta N dígitos se considera extensión interna'),
         h('div'),
         field('Contextos de entrada', inCtx, 'Uno por línea. Admite *. Ej: from-trunk, from-pstn'),
         field('Contextos de salida (opcional)', outCtx, 'Ej: from-internal. Solo se usa si el número no basta para decidir')),
-      h('div', { style: { marginTop: '18px' } }, h('button.btn.primary', { onclick: (e) => save('calls', { internalMaxDigits: digits.value, trunkChannels: split(trunks), inboundContexts: split(inCtx), outboundContexts: split(outCtx) }, e.currentTarget) }, 'Guardar'))));
+      h('div', { style: { marginTop: '18px' } }, h('button.btn.primary', { onclick: (e) => save('calls', { userfieldIn: words(ufIn), userfieldOut: words(ufOut), internalMaxDigits: digits.value, trunkChannels: split(trunks), inboundContexts: split(inCtx), outboundContexts: split(outCtx) }, e.currentTarget) }, 'Guardar'))));
 }
 
 // ---- Interfaz ----------------------------------------------------------------------------

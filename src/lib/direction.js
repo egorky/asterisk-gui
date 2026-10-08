@@ -1,5 +1,5 @@
 // Clasifica llamadas en entrante / saliente / interna según reglas configurables en la GUI.
-// Orden: canal troncal -> contexto de entrada -> ambos internos -> contexto de salida -> origen interno -> destino interno.
+// Orden: campo userfield -> canal troncal -> contexto de entrada -> ambos internos -> contexto de salida -> origen interno -> destino interno.
 const settings = require('./settings');
 
 const escLike = (s) => String(s).replace(/[!%_]/g, (m) => `!${m}`).replace(/'/g, "''");
@@ -10,12 +10,16 @@ function rules() {
   const c = settings.get('calls');
   return {
     max: c.internalMaxDigits,
+    ufIn: c.userfieldIn, ufOut: c.userfieldOut,
     inCtx: c.inboundContexts, outCtx: c.outboundContexts, trunks: c.trunkChannels,
   };
 }
 
-function classify({ src = '', dst = '', channel = '', dstchannel = '', context = '' }) {
+function classify({ src = '', dst = '', channel = '', dstchannel = '', context = '', userfield = '' }) {
   const r = rules();
+  const uf = String(userfield || '').trim().toLowerCase();
+  if (uf && r.ufIn.includes(uf)) return 'in';
+  if (uf && r.ufOut.includes(uf)) return 'out';
   const isInt = (n) => !!n && String(n).length <= r.max;
   const m = (list, v, prefix) => list.some((p) => globToRe(p, prefix).test(v || ''));
   if (m(r.trunks, channel, true)) return 'in';
@@ -37,6 +41,12 @@ function sqlCase(a, cols) {
   const anyLike = (expr, list, prefix) => list.map((p) => `${expr} ${op} '${globToLike(p, prefix)}' ESCAPE '!'`).join(' OR ');
   const isInt = (c) => `(LENGTH(${col(c)}) > 0 AND LENGTH(${col(c)}) <= ${r.max})`;
   const w = [];
+  if (cols.includes('userfield')) {
+    const uf = `LOWER(TRIM(${col('userfield')}))`;
+    const lit = (l) => l.map((x) => `'${String(x).replace(/'/g, "''")}'`).join(', ');
+    if (r.ufIn.length) w.push(`WHEN ${uf} IN (${lit(r.ufIn)}) THEN 'in'`);
+    if (r.ufOut.length) w.push(`WHEN ${uf} IN (${lit(r.ufOut)}) THEN 'out'`);
+  }
   if (r.trunks.length) {
     w.push(`WHEN (${anyLike(col('channel'), r.trunks, true)}) THEN 'in'`);
     w.push(`WHEN (${anyLike(col('dstchannel'), r.trunks, true)}) THEN 'out'`);

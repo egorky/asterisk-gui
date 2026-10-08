@@ -37,6 +37,8 @@ const DEFAULTS = {
     cacheSeconds: 60,
   },
   calls: {
+    userfieldIn: ['incoming'], // palabras del campo userfield del CDR que marcan entrante / saliente
+    userfieldOut: ['outgoing'],
     internalMaxDigits: 5, // números de hasta N dígitos se consideran extensiones internas
     inboundContexts: ['from-trunk', 'from-pstn', 'from-external'],
     outboundContexts: [],
@@ -134,6 +136,8 @@ const SANITIZE = {
   calls(i, cur) {
     const list = (v, d) => (Array.isArray(v) ? v : d).map((x) => str(x)).filter((x) => /^[\w.*+\/@-]{1,64}$/.test(x)).slice(0, 50);
     return {
+      userfieldIn: list(i.userfieldIn, cur.userfieldIn).map((x) => x.toLowerCase()),
+      userfieldOut: list(i.userfieldOut, cur.userfieldOut).map((x) => x.toLowerCase()),
       internalMaxDigits: num(i.internalMaxDigits, 5, 1, 15),
       inboundContexts: list(i.inboundContexts, cur.inboundContexts),
       outboundContexts: list(i.outboundContexts, cur.outboundContexts),
