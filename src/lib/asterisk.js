@@ -1,6 +1,7 @@
 // Servicio que mantiene el estado en vivo de Asterisk (vía AMI) y detecta errores.
 const EventEmitter = require('events');
 const { AmiClient } = require('./ami');
+const { classify } = require('./direction');
 const store = require('./store');
 
 const CAUSES = {
@@ -108,6 +109,7 @@ class AsteriskService extends EventEmitter {
           from, fromName: first.callerName || '',
           to: first.connNum || peerNum || first.exten || '', toName: first.connName || (peer && peer.callerName) || '',
           state: up ? 'Up' : ringing ? 'Ringing' : first.state, bridged: up,
+          direction: classify({ src: from, dst: first.connNum || peerNum || first.exten || '', channel: first.channel, dstchannel: peer ? peer.channel : '', context: first.context }),
         };
       }).sort((a, b) => b.duration - a.duration);
       const hash = JSON.stringify(calls.map((c) => [c.linkedid, c.state, c.legs.map((l) => [l.channel, l.state, l.app])]));

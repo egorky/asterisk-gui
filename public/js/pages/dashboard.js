@@ -60,6 +60,7 @@ export default async function page(ctx) {
     const kpis = h('div.kpis',
       kpi('Llamadas en curso', fmtInt(callsNow), `${fmtInt(live.channels.length)} canales activos`, callsNow ? 'accent' : '', 'phone'),
       kpi('Llamadas hoy', t ? fmtInt(t.total) : '—', t ? `${fmtInt(t.answered)} contestadas` : 'Sin histórico', '', 'history'),
+      kpi('Entrantes / salientes', t ? `${fmtInt(t.byDir?.in || 0)} / ${fmtInt(t.byDir?.out || 0)}` : '—', t ? `${fmtInt(t.byDir?.internal || 0)} internas` : '', '', 'phone'),
       kpi('Tasa de respuesta', t && t.total ? `${Math.round(t.asr * 100)}%` : '—', 'ASR de hoy', t && t.total ? (t.asr > .6 ? 'ok' : t.asr < .4 ? 'bad' : '') : '', 'activity'),
       kpi('Duración media', t && t.answered ? fmtDur(t.acd) : '—', t ? `${fmtDur(t.talkSeconds)} hablados` : '', '', 'mic'),
       kpi('Extensiones en línea', d.endpoints.total ? `${d.endpoints.online}/${d.endpoints.total}` : '—', d.endpoints.tech ? `Tecnología ${d.endpoints.tech}` : 'Sin datos', '', 'users'),

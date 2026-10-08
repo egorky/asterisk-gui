@@ -46,6 +46,9 @@ write = command,reporting,config
 ```
 `asterisk -rx "manager reload"`. La GUI solo hace consultas; no modifica Asterisk.
 
+## Dirección de las llamadas (entrante / saliente / interna)
+Asterisk no la guarda en el CDR; se deduce con reglas editables en **Configuración → Dirección de llamadas** (patrones de canal de troncal, contextos de entrada/salida y máximo de dígitos de una extensión). Se aplica al histórico (columna y filtro), al panel y a las llamadas en vivo.
+
 ## Notas sobre el histórico
 - Columna de fecha: `calldate` (cdr_mysql/odbc) o `start` (cdr_adaptive_odbc); se detecta sola.
 - Use un usuario de base de datos de solo lectura.

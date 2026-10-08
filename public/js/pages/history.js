@@ -1,9 +1,9 @@
-import { h, icon, badge, empty, spinner, fmtDate, fmtDur, fmtInt, fmtSize, debounce, dispBadge, drawer, localInput, toSqlDate, toast, setClipboard } from '../ui.js';
+import { h, icon, badge, dirBadge, empty, spinner, fmtDate, fmtDur, fmtInt, fmtSize, debounce, dispBadge, drawer, localInput, toSqlDate, toast, setClipboard } from '../ui.js';
 import { api, qs, state } from '../api.js';
 import { playButton } from '../player.js';
 
 const KEY = 'hist-filters';
-const FIELDS = ['from', 'to', 'number', 'src', 'dst', 'uniqueid', 'disposition', 'minDur', 'maxDur', 'channel', 'q'];
+const FIELDS = ['from', 'to', 'number', 'src', 'dst', 'uniqueid', 'disposition', 'direction', 'minDur', 'maxDur', 'channel', 'q'];
 
 function loadFilters() {
   let f = {};
@@ -42,6 +42,7 @@ export default async function page(ctx) {
     field('number', 'Número (origen/destino)', { ph: 'Ej. 573001234567' }), field('src', 'Origen', { ph: 'Extensión o número' }), field('dst', 'Destino', { ph: 'Extensión o número' }),
     field('uniqueid', 'Uniqueid / Linkedid', { ph: '1735726210.55' }),
     field('disposition', 'Estado', { options: [['', 'Todos'], ['ANSWERED', 'Contestada'], ['NO ANSWER', 'Sin respuesta'], ['BUSY', 'Ocupado'], ['FAILED', 'Fallida'], ['FAILED,BUSY,NO ANSWER,CONGESTION', 'No completadas']] }),
+    field('direction', 'Dirección', { options: [['', 'Todas'], ['in', 'Entrantes'], ['out', 'Salientes'], ['internal', 'Internas'], ['other', 'Otras']] }),
     field('channel', 'Canal / troncal', { ph: 'PJSIP/trunk…' }),
     field('minDur', 'Facturable mín. (s)', { type: 'number', ph: '0' }), field('maxDur', 'Facturable máx. (s)', { type: 'number' }),
     field('q', 'Búsqueda libre', { ph: 'Caller ID, app, datos…' }, '.wide'));
@@ -77,12 +78,13 @@ export default async function page(ctx) {
       summary.textContent = r.total != null ? `${fmtInt(r.total)} llamadas` : '';
       if (!r.rows.length) tbl.replaceChildren(empty('No se encontraron llamadas', 'Pruebe ampliando el rango de fechas o quitando filtros')); else
         tbl.replaceChildren(h('div.table-wrap', { style: { maxHeight: '64vh' } }, h('table',
-          h('thead', h('tr', h('th'), th('Fecha', 'date'), th('Origen', 'src'), th('Destino', 'dst'), h('th', 'Canal'), h('th', 'Estado'), th('Duración', 'duration', '.r'), th('Facturable', 'billsec', '.r'), h('th', 'Uniqueid'))),
+          h('thead', h('tr', h('th'), th('Fecha', 'date'), th('Origen', 'src'), th('Destino', 'dst'), h('th', 'Dir.'), h('th', 'Canal'), h('th', 'Estado'), th('Duración', 'duration', '.r'), th('Facturable', 'billsec', '.r'), h('th', 'Uniqueid'))),
           h('tbody', r.rows.map((c) => h('tr.click', { onclick: () => showDetail(c) },
             h('td', { style: { width: '44px' } }, c.recordings?.length ? playButton({ ...c.recordings[0], dir: c.recordings[0].dir }) : null),
             h('td.nowrap.num', fmtDate(c.date)),
             h('td', h('b', c.src || '—'), c.clid && c.clid.replace(/<.*>/, '').replace(/"/g, '').trim() ? h('div.dim', c.clid.replace(/<.*>/, '').replace(/"/g, '').trim()) : null),
             h('td', c.dst || '—', c.dcontext ? h('div.dim', c.dcontext) : null),
+            h('td', dirBadge(c.direction)),
             h('td.mono.dim', (c.channel || '').replace(/-[0-9a-f]{6,}$/i, '')),
             h('td', dispBadge(c.disposition)), h('td.r.num', fmtDur(c.duration)), h('td.r.num', fmtDur(c.billsec)),
             h('td.mono.dim', c.uniqueid)))))));
@@ -111,7 +113,7 @@ export default async function page(ctx) {
       const kv = (pairs) => h('dl.kv', pairs.filter(([, v]) => v !== '' && v != null).flatMap(([k, v]) => [h('dt', k), h('dd', v)]));
       const parts = [
         h('div', h('div.section-t', 'Resumen'), kv([
-          ['Fecha', fmtDate(l.date)], ['Estado', dispBadge(l.disposition)], ['Origen', l.src], ['Destino', l.dst], ['Caller ID', l.clid], ['Contexto', l.dcontext],
+          ['Fecha', fmtDate(l.date)], ['Estado', dispBadge(l.disposition)], ['Dirección', dirBadge(c.direction)], ['Origen', l.src], ['Destino', l.dst], ['Caller ID', l.clid], ['Contexto', l.dcontext],
           ['Canal', h('span.mono', l.channel)], ['Canal destino', l.dstchannel && h('span.mono', l.dstchannel)], ['Aplicación', `${l.lastapp || ''} ${l.lastdata || ''}`.trim()],
           ['Duración total', fmtDur(l.duration)], ['Tiempo hablado', fmtDur(l.billsec)], ['Cuenta', l.accountcode], ['Userfield', l.userfield],
           ['Uniqueid', h('span.mono', l.uniqueid, ' ', h('button.btn.sm.ghost', { onclick: () => setClipboard(l.uniqueid) }, 'copiar'))], ['Linkedid', l.linkedid && l.linkedid !== l.uniqueid && h('span.mono', l.linkedid)]])),

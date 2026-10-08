@@ -1,4 +1,4 @@
-import { h, icon, fmtDur, badge, empty, fmtDate, timeAgo } from '../ui.js';
+import { h, icon, fmtDur, badge, dirBadge, empty, fmtDate, timeAgo } from '../ui.js';
 import { state } from '../api.js';
 
 const STATE_TONE = { Up: 'ok', Ringing: 'warn', Ring: 'warn', Down: 'muted' };
@@ -29,16 +29,17 @@ export default async function page(ctx) {
         h('td', { style: { width: '28px' } }, icon(isOpen ? 'down' : 'right', 15)),
         h('td', h('b', c.from || '—'), c.fromName ? h('div.dim', c.fromName) : null),
         h('td', h('b', c.to || '—'), c.toName ? h('div.dim', c.toName) : null),
+        h('td', dirBadge(c.direction)),
         h('td', badge(c.state === 'Up' ? 'Conectada' : c.state === 'Ringing' ? 'Sonando' : c.state, STATE_TONE[c.state] || 'accent')),
         h('td.num', fmtDur(c.duration + off / 1000)),
         h('td', c.legs.map((l) => h('span.chip.mono', l.channel.replace(/-[0-9a-f]{6,}$/i, '')))),
         h('td.dim', c.legs.find((l) => l.app)?.app || '—')));
-      if (isOpen) rows.push(h('tr', h('td', { colspan: 7, style: { background: 'var(--surface-2)' } },
+      if (isOpen) rows.push(h('tr', h('td', { colspan: 8, style: { background: 'var(--surface-2)' } },
         h('table', h('thead', h('tr', ['Canal', 'Estado', 'Caller ID', 'Conectado a', 'Contexto / Ext.', 'Aplicación', 'Uniqueid'].map((x) => h('th', x)))),
           h('tbody', c.legs.map((l) => h('tr', h('td.mono', l.channel), h('td', l.state), h('td', `${l.callerNum || ''} ${l.callerName ? `(${l.callerName})` : ''}`), h('td', l.connNum || '—'), h('td.mono', `${l.context}/${l.exten}`), h('td', `${l.app || ''} ${l.appData || ''}`), h('td.mono', l.uniqueid))))))));
     }
     body.replaceChildren(h('div.card', h('div.table-wrap', h('table',
-      h('thead', h('tr', h('th'), h('th', 'Origen'), h('th', 'Destino'), h('th', 'Estado'), h('th', 'Duración'), h('th', 'Canales'), h('th', 'App'))), h('tbody', rows)))));
+      h('thead', h('tr', h('th'), h('th', 'Origen'), h('th', 'Destino'), h('th', 'Dir.'), h('th', 'Estado'), h('th', 'Duración'), h('th', 'Canales'), h('th', 'App'))), h('tbody', rows)))));
   };
   const drawFeed = () => {
     const evs = state.events.filter((e) => e.severity !== 'info').slice(0, 12);

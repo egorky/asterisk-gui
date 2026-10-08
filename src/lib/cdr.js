@@ -1,5 +1,6 @@
 // Acceso de solo lectura al histórico (CDR/CEL) que Asterisk ya guarda en su base de datos.
 const settings = require('./settings');
+const direction = require('./direction');
 
 const STD_COLS = ['start', 'answer', 'end', 'calldate', 'clid', 'src', 'dst', 'dcontext', 'channel', 'dstchannel', 'lastapp', 'lastdata',
   'duration', 'billsec', 'disposition', 'amaflags', 'accountcode', 'uniqueid', 'linkedid', 'userfield', 'sequence', 'peeraccount'];
@@ -92,7 +93,7 @@ async function schema() {
   const sel = STD_COLS.filter((c) => cols.includes(c));
   const rec = cols.includes(cfg.recordingColumn) ? cfg.recordingColumn : null;
   if (rec && !sel.includes(rec)) sel.push(rec);
-  return { a, cfg, cols, dateCol, sel, rec };
+  return { a, cfg, cols, dateCol, sel, rec, dirExpr: direction.sqlCase(a, cols) };
 }
 
 const esc = (s) => String(s).replace(/[!%_]/g, (m) => `!${m}`);
@@ -128,6 +129,7 @@ function buildWhere(S, f) {
       w.push(`(${a.q('uniqueid')} ${op} ${a.ph(p.length - 1)} ESCAPE '!' OR ${a.q('linkedid')} ${op} ${a.ph(p.length)} ESCAPE '!')`);
     } else like(['uniqueid'], f.uniqueid);
   }
+  if (['in', 'out', 'internal', 'other'].includes(f.direction)) w.push(`(${S.dirExpr}) = '${f.direction}'`);
   if (f.disposition && cols.includes('disposition')) {
     const list = String(f.disposition).split(',').map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 8);
     if (list.length) {
@@ -159,13 +161,13 @@ async function list(f = {}, { limit = 50, offset = 0, sort = 'date', dir = 'desc
   const table = a.q(S.cfg.cdrTable);
   const lim = Math.min(Math.max(Number(limit) || 50, 1), 50000);
   const off = Math.max(Number(offset) || 0, 0);
-  const rows = await a.query(`SELECT ${S.sel.map((c) => a.q(c)).join(', ')} FROM ${table} ${where} ORDER BY ${order} LIMIT ${lim} OFFSET ${off}`, params);
+  const rows = await a.query(`SELECT ${S.sel.map((c) => a.q(c)).join(', ')}, ${S.dirExpr} AS ${a.q('direction')} FROM ${table} ${where} ORDER BY ${order} LIMIT ${lim} OFFSET ${off}`, params);
   let total = null;
   if (limit <= 1000) {
     const t = await a.query(`SELECT COUNT(*) AS n FROM ${table} ${where}`, params);
     total = Number(t[0].n ?? Object.values(t[0])[0]);
   }
-  return { rows: rows.map((r) => norm(r, S)), total, columns: S.sel };
+  return { rows: rows.map((r) => norm(r, S)), total, columns: [...S.sel, 'direction'] };
 }
 
 async function detail(id) {
@@ -210,18 +212,19 @@ async function stats() {
   const d7 = new Date(startToday.getTime() - 6 * 86400e3);
   const disp = hasDisp ? `UPPER(${a.q('disposition')})` : "'UNKNOWN'";
   // sólo registros "raíz" no es fiable entre versiones: se cuentan todos los CDR
-  const [today, hourly, daily, top] = await Promise.all([
+  const [today, hourly, daily, top, byDirRows] = await Promise.all([
     a.query(`SELECT ${disp} AS d, COUNT(*) AS n, ${hasBill ? `SUM(${a.q('billsec')})` : '0'} AS talk FROM ${T} WHERE ${D} >= ${a.ph(1)} GROUP BY ${disp}`, [fmt(startToday)]),
     a.query(`SELECT ${bucket(a, S.dateCol, 'hour')} AS b, ${disp} AS d, COUNT(*) AS n FROM ${T} WHERE ${D} >= ${a.ph(1)} GROUP BY b, d ORDER BY b`, [fmt(h24)]),
     a.query(`SELECT ${bucket(a, S.dateCol, 'day')} AS b, ${disp} AS d, COUNT(*) AS n FROM ${T} WHERE ${D} >= ${a.ph(1)} GROUP BY b, d ORDER BY b`, [fmt(d7)]),
     S.cols.includes('src') ? a.query(`SELECT ${a.q('src')} AS s, COUNT(*) AS n FROM ${T} WHERE ${D} >= ${a.ph(1)} AND ${a.q('src')} <> '' GROUP BY ${a.q('src')} ORDER BY n DESC LIMIT 8`, [fmt(d7)]) : [],
+    a.query(`SELECT ${S.dirExpr} AS d, COUNT(*) AS n FROM ${T} WHERE ${D} >= ${a.ph(1)} GROUP BY ${S.dirExpr}`, [fmt(startToday)]),
   ]);
   const byDisp = {};
   let total = 0, talk = 0;
   for (const r of today) { byDisp[r.d || 'UNKNOWN'] = Number(r.n); total += Number(r.n); talk += Number(r.talk || 0); }
   const answered = byDisp.ANSWERED || 0;
   return {
-    today: { total, answered, byDisp, talkSeconds: talk, asr: total ? answered / total : 0, acd: answered ? talk / answered : 0 },
+    today: { total, answered, byDisp, byDir: Object.fromEntries(byDirRows.map((r) => [r.d, Number(r.n)])), talkSeconds: talk, asr: total ? answered / total : 0, acd: answered ? talk / answered : 0 },
     hourly: hourly.map((r) => ({ b: r.b, d: r.d, n: Number(r.n) })),
     daily: daily.map((r) => ({ b: r.b, d: r.d, n: Number(r.n) })),
     top: top.map((r) => ({ src: r.s, n: Number(r.n) })),

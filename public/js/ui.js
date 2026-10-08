@@ -110,6 +110,8 @@ export const DISP = {
   FAILED: ['Fallida', 'bad'], CONGESTION: ['Congestión', 'bad'], UNKNOWN: ['Desconocido', 'muted'],
 };
 export const dispBadge = (d) => { const [t, c] = DISP[String(d || '').toUpperCase()] || [d || '—', 'muted']; return h(`span.badge.${c}`, t); };
+export const DIRS = { in: ['Entrante', 'ok', 'in'], out: ['Saliente', 'accent', 'out'], internal: ['Interna', 'muted', 'users'], other: ['Otra', 'muted', 'phone'] };
+export const dirBadge = (d) => { const [t, c, i] = DIRS[d] || DIRS.other; return h(`span.badge.${c}`, icon(i, 12), t); };
 export const badge = (text, tone = 'muted') => h(`span.badge.${tone}`, text);
 
 // ---- Notificaciones y modales --------------------------------------------

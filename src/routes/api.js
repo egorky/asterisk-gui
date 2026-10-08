@@ -170,7 +170,7 @@ router.post('/asterisk/cli', needAmi, wrap(async (req, res) => {
 }));
 
 // ---- Histórico (CDR) --------------------------------------------------
-const cdrFilters = (q) => Object.fromEntries(['from', 'to', 'number', 'src', 'dst', 'uniqueid', 'disposition', 'channel', 'account', 'minDur', 'maxDur', 'q']
+const cdrFilters = (q) => Object.fromEntries(['from', 'to', 'number', 'src', 'dst', 'uniqueid', 'disposition', 'direction', 'channel', 'account', 'minDur', 'maxDur', 'q']
   .filter((k) => q[k] !== undefined && q[k] !== '').map((k) => [k, String(q[k])]));
 const paging = (q) => ({ limit: Math.min(Number(q.limit) || 50, 1000), offset: Number(q.offset) || 0, sort: q.sort, dir: q.order });
 

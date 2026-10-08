@@ -36,6 +36,12 @@ const DEFAULTS = {
     recursive: true,
     cacheSeconds: 60,
   },
+  calls: {
+    internalMaxDigits: 5, // números de hasta N dígitos se consideran extensiones internas
+    inboundContexts: ['from-trunk', 'from-pstn', 'from-external'],
+    outboundContexts: [],
+    trunkChannels: [], // p. ej. SIP/xtrim-*, PJSIP/trunk-*
+  },
   ui: {
     refreshSeconds: 5,
     theme: 'dark',
@@ -123,6 +129,15 @@ const SANITIZE = {
       extensions: [...new Set(exts)].length ? [...new Set(exts)] : ['mp3', 'wav'],
       recursive: i.recursive !== false,
       cacheSeconds: num(i.cacheSeconds, 60, 5, 3600),
+    };
+  },
+  calls(i, cur) {
+    const list = (v, d) => (Array.isArray(v) ? v : d).map((x) => str(x)).filter((x) => /^[\w.*+\/@-]{1,64}$/.test(x)).slice(0, 50);
+    return {
+      internalMaxDigits: num(i.internalMaxDigits, 5, 1, 15),
+      inboundContexts: list(i.inboundContexts, cur.inboundContexts),
+      outboundContexts: list(i.outboundContexts, cur.outboundContexts),
+      trunkChannels: list(i.trunkChannels, cur.trunkChannels),
     };
   },
   ui(i, cur) {
