@@ -18,6 +18,7 @@ const SECURITY = new Set(['FailedACL', 'InvalidAccountID', 'InvalidPassword', 'C
   'AuthMethodNotAllowed', 'UnexpectedAddress', 'RequestBadFormat', 'RequestNotAllowed', 'RequestNotSupported',
   'SessionLimit', 'MemoryLimit', 'LoadAverageLimit']);
 
+const clean = (v) => (v && !/^<?unknown>?$/i.test(String(v).trim()) ? v : '');
 const toSecs = (d) => {
   if (!d) return 0;
   const p = String(d).split(':').map(Number);
@@ -83,7 +84,7 @@ class AsteriskService extends EventEmitter {
       const { events } = await this.ami.action({ Action: 'CoreShowChannels' }, { list: true });
       const channels = events.filter((e) => e.Event === 'CoreShowChannel').map((e) => ({
         channel: e.Channel, uniqueid: e.Uniqueid, linkedid: e.Linkedid || e.Uniqueid,
-        callerNum: e.CallerIDNum, callerName: e.CallerIDName, connNum: e.ConnectedLineNum, connName: e.ConnectedLineName,
+        callerNum: clean(e.CallerIDNum), callerName: clean(e.CallerIDName), connNum: clean(e.ConnectedLineNum), connName: clean(e.ConnectedLineName),
         context: e.Context, exten: e.Exten, priority: e.Priority, state: e.ChannelStateDesc, stateCode: e.ChannelState,
         app: e.Application, appData: e.ApplicationData, duration: toSecs(e.Duration), bridgeId: e.BridgeId || '',
         account: e.AccountCode || '',
@@ -98,11 +99,14 @@ class AsteriskService extends EventEmitter {
         const first = legs[0];
         const up = legs.some((l) => l.state === 'Up' && l.bridgeId);
         const ringing = legs.some((l) => /Ring/i.test(l.state));
-        const peer = legs.find((l) => l !== first) || first;
+        const peer = legs.find((l) => l !== first);
+        const from = first.callerNum || first.connNum || '';
+        // Destino: línea conectada; si no, el caller id del otro tramo (número marcado); si no, la extensión
+        const peerNum = peer && peer.callerNum && peer.callerNum !== from ? peer.callerNum : '';
         return {
           linkedid, legs, duration: first.duration,
-          from: first.callerNum || first.connNum || '', fromName: first.callerName || '',
-          to: first.connNum || first.exten || peer.callerNum || '', toName: first.connName || '',
+          from, fromName: first.callerName || '',
+          to: first.connNum || peerNum || first.exten || '', toName: first.connName || (peer && peer.callerName) || '',
           state: up ? 'Up' : ringing ? 'Ringing' : first.state, bridged: up,
         };
       }).sort((a, b) => b.duration - a.duration);
