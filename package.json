@@ -1,0 +1,24 @@
+{
+  "name": "asterisk-gui",
+  "version": "1.0.0",
+  "description": "Panel web para monitorear y consultar un servidor Asterisk (llamadas en vivo, histórico CDR, grabaciones)",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/server.js",
+    "mock": "node tools/mock-asterisk.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^18.0.6",
+    "express": "^5.2.1",
+    "mysql2": "^3.24.5",
+    "pg": "^8.23.1",
+    "ws": "^8.22.0"
+  }
+}
