@@ -9,8 +9,9 @@ function open(file, { readOnly = false } = {}) {
     }
   }
   let Database;
-  try { Database = require('better-sqlite3'); } catch {
-    throw new Error('Se requiere Node >= 22.5 o instalar better-sqlite3 (npm install better-sqlite3)');
+  try { Database = require('better-sqlite3'); } catch (e) {
+    throw new Error(`No se pudo cargar better-sqlite3 (necesario en Node < 22.5): ${e.message}\n` +
+      'Pruebe: npm rebuild better-sqlite3   (si falla, instale: apt install build-essential python3)');
   }
   return new Database(file, { readonly: readOnly, fileMustExist: readOnly });
 }
