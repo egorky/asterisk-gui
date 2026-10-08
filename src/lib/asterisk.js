@@ -20,6 +20,10 @@ const SECURITY = new Set(['FailedACL', 'InvalidAccountID', 'InvalidPassword', 'C
   'SessionLimit', 'MemoryLimit', 'LoadAverageLimit']);
 
 const clean = (v) => (v && !/^<?unknown>?$/i.test(String(v).trim()) ? v : '');
+const uidCmp = (a, b) => {
+  const [ae, as = 0] = String(a).split('.').map(Number), [be, bs = 0] = String(b).split('.').map(Number);
+  return ae - be || as - bs;
+};
 const toSecs = (d) => {
   if (!d) return 0;
   const p = String(d).split(':').map(Number);
@@ -96,8 +100,10 @@ class AsteriskService extends EventEmitter {
         groups.get(c.linkedid).push(c);
       }
       const calls = [...groups.entries()].map(([linkedid, legs]) => {
-        legs.sort((a, b) => b.duration - a.duration);
+        // El tramo que originó la llamada es el canal creado primero (menor Uniqueid), igual que el campo "channel" del CDR
+        legs.sort((a, b) => uidCmp(a.uniqueid, b.uniqueid));
         const first = legs[0];
+        const maxDur = Math.max(...legs.map((l) => l.duration));
         const up = legs.some((l) => l.state === 'Up' && l.bridgeId);
         const ringing = legs.some((l) => /Ring/i.test(l.state));
         const peer = legs.find((l) => l !== first);
@@ -105,7 +111,7 @@ class AsteriskService extends EventEmitter {
         // Destino: línea conectada; si no, el caller id del otro tramo (número marcado); si no, la extensión
         const peerNum = peer && peer.callerNum && peer.callerNum !== from ? peer.callerNum : '';
         return {
-          linkedid, legs, duration: first.duration,
+          linkedid, legs, duration: maxDur,
           from, fromName: first.callerName || '',
           to: first.connNum || peerNum || first.exten || '', toName: first.connName || (peer && peer.callerName) || '',
           state: up ? 'Up' : ringing ? 'Ringing' : first.state, bridged: up,
