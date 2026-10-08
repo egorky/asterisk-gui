@@ -5,7 +5,7 @@
 const net = require('net');
 const fs = require('fs');
 const path = require('path');
-const { DatabaseSync } = require('node:sqlite');
+const sqlite = require('../src/lib/sqlite');
 
 const DEMO = path.join(__dirname, '..', 'demo');
 const PORT = Number(process.env.MOCK_PORT) || 5039;
@@ -30,7 +30,7 @@ function seed() {
   const dbf = path.join(DEMO, 'master.db');
   if (fs.existsSync(dbf)) return;
   console.log('Generando datos de ejemplo…');
-  const db = new DatabaseSync(dbf);
+  const db = sqlite.open(dbf);
   db.exec(`CREATE TABLE cdr (calldate TEXT, clid TEXT, src TEXT, dst TEXT, dcontext TEXT, channel TEXT, dstchannel TEXT, lastapp TEXT,
     lastdata TEXT, duration INT, billsec INT, disposition TEXT, amaflags INT, accountcode TEXT, uniqueid TEXT, userfield TEXT, linkedid TEXT, sequence INT, peeraccount TEXT, recordingfile TEXT);
     CREATE TABLE cel (id INTEGER PRIMARY KEY, eventtype TEXT, eventtime TEXT, cid_name TEXT, cid_num TEXT, exten TEXT, context TEXT, channame TEXT, appname TEXT, appdata TEXT, uniqueid TEXT, linkedid TEXT, peer TEXT, extra TEXT);

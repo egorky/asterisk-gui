@@ -41,9 +41,8 @@ async function makeAdapter(cfg) {
       close: () => pool.end(),
     };
   }
-  const { DatabaseSync } = require('node:sqlite');
   if (!cfg.file) throw new Error('Falta la ruta del archivo SQLite');
-  const db = new DatabaseSync(cfg.file, { readOnly: true });
+  const db = require('./sqlite').open(cfg.file, { readOnly: true });
   db.exec('PRAGMA busy_timeout = 3000');
   return {
     dialect: 'sqlite',

@@ -1,5 +1,5 @@
 // Almacenamiento propio de la GUI (SQLite embebido de Node): ajustes, usuarios y eventos.
-const { DatabaseSync } = require('node:sqlite');
+const sqlite = require('./sqlite');
 const fs = require('fs');
 const path = require('path');
 
@@ -7,7 +7,7 @@ let db;
 
 function open(dataDir) {
   fs.mkdirSync(dataDir, { recursive: true });
-  db = new DatabaseSync(path.join(dataDir, 'gui.db'));
+  db = sqlite.open(path.join(dataDir, 'gui.db'));
   db.exec(`
     PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);

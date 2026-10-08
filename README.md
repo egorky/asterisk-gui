@@ -11,7 +11,7 @@ Panel web (Node.js) para monitorear un servidor Asterisk: llamadas en vivo, erro
 Todo se configura desde la GUI (Configuración). El `.env` solo tiene lo básico.
 
 ## Requisitos
-Node.js ≥ 22.13 (usa `node:sqlite` integrado para guardar la configuración propia).
+Node.js ≥ 20.11. En Node ≥ 22.5 usa el SQLite integrado; en Node 20 usa `better-sqlite3` (se instala solo con `npm install`; si falla la compilación necesita `build-essential`/`python3`).
 
 ## Puesta en marcha
 ```bash
