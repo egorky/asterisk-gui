@@ -19,9 +19,7 @@
     "express": "^5.2.1",
     "mysql2": "^3.24.5",
     "pg": "^8.23.1",
-    "ws": "^8.22.0"
-  },
-  "optionalDependencies": {
+    "ws": "^8.22.0",
     "better-sqlite3": "^13.0.3"
   }
 }
